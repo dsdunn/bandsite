@@ -1,0 +1,6 @@
+{
+  "name": "bandsite",
+  "version": "1.0.0",
+  "description": "Backend for dsdunn bandsite template",
+  "type": "module"
+}
