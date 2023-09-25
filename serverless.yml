@@ -28,11 +28,23 @@ provider:
     USERS_TABLE: ${self:custom.tableName}
 
 functions:
-  api:
-    handler: index.handler
+  apiGet:
+    handler: index.getHandler
     events:
       - httpApi:
-          method: '*'
+          method: 'GET'
+          path: /{bandId}
+  apiPut:
+    handler: index.putHandler
+    events:
+      - httpApi:
+          method: 'PUT'
+          path: /{bandId}
+  apiDelete:
+    handler: index.deleteHandler
+    events:
+      - httpApi:
+          method: 'DELETE'
           path: /{bandId}
 
 resources:

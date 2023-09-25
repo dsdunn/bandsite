@@ -12,71 +12,81 @@ const dynamo = DynamoDBDocumentClient.from(client);
 
 const tableName = "bandsite-table";
 
-export const handler = async (event, context) => {
-  const { method, path } = event.requestContext?.http;
-  const bandId = path.slice(1);
-  const routeKey = `${method} ${path}`;
-  let body;
-  let statusCode = 200;
-  const headers = {
-    "Content-Type": "application/json",
-  };
+export const getHandler = async (event, context) => {
+  const { bandId } = event.pathParameters;
 
   try {
-    switch (method) {
-      case "DELETE":
-        await dynamo.send(
-          new DeleteCommand({
-            TableName: tableName,
-            Key: {
-              id: bandId,
-            },
-          })
-        );
-        body = `Deleted item ${bandId}`;
-        break;
-      case "GET":
-        if (!bandId) {
-          throw new Error("specify a bandId in the path");
-        }
-        body = await dynamo.send(
-          new GetCommand({
-            TableName: tableName,
-            Key: {
-              id: bandId,
-            },
-          })
-        );
-        body = body.Item;
-        break;
-      case "PUT":
-        let requestJSON = JSON.parse(event.body);
-  
-        const response = await dynamo.send(
-          new PutCommand({
-            TableName: tableName,
-            Item: {
-              id: bandId,
-              name: requestJSON.name || bandId,
-              shows: requestJSON.shows || [],
-            },
-          })
-        );
-        body = `Put item response: ${response}`;
-        break;
-      default:
-        throw new Error(`Unsupported path: "${event.rawPath}"`);
-    }
-  } catch (err) {
-    statusCode = 400;
-    body = err.message;
-  } finally {
-    body = JSON.stringify(body);
-  }
+    const response = await dynamo.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: {
+            id: bandId,
+        },
+      })
+    );
 
-  return {
-    statusCode,
-    body,
-    headers,
+    return {
+      status: 200,
+      event,
+      band: response.item || 'can\'t be found'
+    };
+  } catch (error) {
+    return {
+      status: 500,
+      error,
+      event
+    }
   }
 };
+
+export const putHandler = async (event, context) => {
+  const bandId = getBandId(event);
+  let item = JSON.parse(event.body);
+
+  try {
+    const response = await dynamo.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          id: bandId,
+          ...item
+        }
+      })
+    );
+
+    return {
+      status: 200,
+      event,
+      band: response.item
+    };
+  } catch (error) {
+    return {
+      status: 500,
+      error
+    }
+  }
+}
+
+export const deleteHandler = async (event, context) => {
+  try {
+    const response = await dynamo.send(
+      new DeleteCommand({
+          TableName: tableName,
+          Key: {
+              id: bandId
+          }
+      })
+    );
+
+    return {
+      status: 200,
+      event,
+      band: response.item
+    };
+  } catch (error) {
+    return {
+      status: 500,
+      error
+    }
+  }
+}
