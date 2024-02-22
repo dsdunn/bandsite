@@ -6,13 +6,20 @@ import {
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
 
+import { listAllObjects, deleteObject } from './s3.js';
+
 const client = new DynamoDBClient({});
 
 const dynamo = DynamoDBDocumentClient.from(client);
 
-const tableName = "bandsite-table";
+const tableName = 'bandsite-table';
+const bucketName = 'band-media-bucket'
+const bucketUrl = 'https://band-media-bucket.s3.us-west-2.amazonaws.com/'
+
+const buildImageUrl = (bandName, fileName) => `${bucketUrl}${bucketName}/${bandId}/${fileName}`;
 
 export const getHandler = async (event, context) => {
+  console.log(event);
   const { bandId } = event.pathParameters;
 
   try {
@@ -25,10 +32,18 @@ export const getHandler = async (event, context) => {
       })
     );
 
+    // const images = await listAllObjects();
+
+    const { Item, $metadata } = response;
+    const { id, name, shows, images } = Item;
     return {
       status: 200,
-      event,
-      band: response.item || 'can\'t be found'
+      band: {
+        id,
+        name,
+        shows,
+        images
+      }
     };
   } catch (error) {
     return {
@@ -40,7 +55,8 @@ export const getHandler = async (event, context) => {
 };
 
 export const putHandler = async (event, context) => {
-  const bandId = getBandId(event);
+  const { bandId } = event.pathParameters;
+
   let item = JSON.parse(event.body);
 
   try {
@@ -54,10 +70,13 @@ export const putHandler = async (event, context) => {
       })
     );
 
+    const { Item, $metadata } = response;
+
     return {
       status: 200,
       event,
-      band: response.item
+      dynamoResponseCode: $metadata.httpStatusCode,
+      band: Item
     };
   } catch (error) {
     return {
@@ -68,6 +87,8 @@ export const putHandler = async (event, context) => {
 }
 
 export const deleteHandler = async (event, context) => {
+  const { bandId } = event.pathParameters;
+
   try {
     const response = await dynamo.send(
       new DeleteCommand({
@@ -78,10 +99,13 @@ export const deleteHandler = async (event, context) => {
       })
     );
 
+    const { Item, $metadata } = response;
+
     return {
       status: 200,
       event,
-      band: response.item
+      dynamoResponseCode: $metadata.httpStatusCode,
+      band: Item
     };
   } catch (error) {
     return {

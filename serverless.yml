@@ -5,12 +5,16 @@ frameworkVersion: '3'
 
 custom:
   tableName: 'bandsite-table'
+  bucket: 'band-media-bucket'
 
 provider:
   name: aws
   runtime: nodejs18.x
   stackName: bandsite-stack
   region: us-west-2
+  apiGateway:
+        binaryMediaTypes:
+            - '*/*'
   iam:
     role:
       statements:
@@ -22,10 +26,11 @@ provider:
             - dynamodb:PutItem
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
+            - s3:PutObject
+            - s3:GetObject
           Resource:
             - Fn::GetAtt: [ BandsTable, Arn ]
-  environment:
-    USERS_TABLE: ${self:custom.tableName}
+            - Fn::GetAtt: [ StorageBucket, Arn ]
 
 functions:
   apiGet:
@@ -60,3 +65,9 @@ resources:
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:custom.tableName}
+    StorageBucket:
+            Type: "AWS::S3::Bucket"
+            Properties:
+                BucketName: ${self:custom.bucket}
+plugins:
+  - serverless-offline
