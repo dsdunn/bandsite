@@ -12,6 +12,9 @@ provider:
   runtime: nodejs18.x
   stackName: bandsite-stack
   region: us-west-2
+  httpApi:
+    cors:
+      true
   apiGateway:
         binaryMediaTypes:
             - '*/*'
@@ -45,6 +48,7 @@ functions:
       - httpApi:
           method: 'PUT'
           path: /{bandId}
+
   apiDelete:
     handler: index.deleteHandler
     events:

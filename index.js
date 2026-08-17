@@ -5,6 +5,7 @@ import {
   GetCommand,
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { CognitoJwtVerifier } from "aws-jwt-verify";
 
 import { listAllObjects, deleteObject } from './s3.js';
 
@@ -13,13 +14,27 @@ const client = new DynamoDBClient({});
 const dynamo = DynamoDBDocumentClient.from(client);
 
 const tableName = 'bandsite-table';
-const bucketName = 'band-media-bucket'
-const bucketUrl = 'https://band-media-bucket.s3.us-west-2.amazonaws.com/'
 
-const buildImageUrl = (bandName, fileName) => `${bucketUrl}${bucketName}/${bandId}/${fileName}`;
+
+// Verifier that expects valid access tokens:
+const verifier = CognitoJwtVerifier.create({
+  userPoolId: "us-west-2_1zzVr4BXm",
+  tokenUse: "access",
+  clientId: "4sb4pk05206tebsb8um1o2ecr2",
+});
+
+const isValidToken = async (token) => {
+  try {
+    const payload = await verifier.verify(token);
+    console.log("Token is valid. Payload:", payload);
+    return true;
+  } catch (e){
+    console.log("Token not valid!", e);
+    return false;
+  }
+}
 
 export const getHandler = async (event, context) => {
-  console.log(event);
   const { bandId } = event.pathParameters;
 
   try {
@@ -32,31 +47,25 @@ export const getHandler = async (event, context) => {
       })
     );
 
-    // const images = await listAllObjects();
-
     const { Item, $metadata } = response;
-    const { id, name, shows, images } = Item;
-    return {
-      status: 200,
-      band: {
-        id,
-        name,
-        shows,
-        images
-      }
-    };
+
+    return Item;
   } catch (error) {
-    return {
-      status: 500,
-      error,
-      event
-    }
+    return error;
   }
 };
 
 export const putHandler = async (event, context) => {
   const { bandId } = event.pathParameters;
+  const token = event.headers.authorization;
 
+  if (!isValidToken(token)) {
+    return {
+      status: 403,
+      message: 'Unauthorized'
+    }
+  }
+  
   let item = JSON.parse(event.body);
 
   try {
@@ -74,20 +83,25 @@ export const putHandler = async (event, context) => {
 
     return {
       status: 200,
-      event,
       dynamoResponseCode: $metadata.httpStatusCode,
       band: Item
     };
   } catch (error) {
-    return {
-      status: 500,
-      error
-    }
+    return error
   }
 }
 
 export const deleteHandler = async (event, context) => {
   const { bandId } = event.pathParameters;
+
+  const token = event.headers.authorization;
+
+  if (!isValidToken(token)) {
+    return {
+      status: 403,
+      message: 'Unauthorized'
+    }
+  }
 
   try {
     const response = await dynamo.send(
