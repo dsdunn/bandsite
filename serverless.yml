@@ -1,0 +1,77 @@
+org: dsdunn
+app: bandsite
+service: bandsite-service
+frameworkVersion: '3'
+
+custom:
+  tableName: 'bandsite-table'
+  bucket: 'band-media-bucket'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stackName: bandsite-stack
+  region: us-west-2
+  httpApi:
+    cors:
+      true
+  apiGateway:
+        binaryMediaTypes:
+            - '*/*'
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - s3:PutObject
+            - s3:GetObject
+          Resource:
+            - Fn::GetAtt: [ BandsTable, Arn ]
+            - Fn::GetAtt: [ StorageBucket, Arn ]
+
+functions:
+  apiGet:
+    handler: index.getHandler
+    events:
+      - httpApi:
+          method: 'GET'
+          path: /{bandId}
+  apiPut:
+    handler: index.putHandler
+    events:
+      - httpApi:
+          method: 'PUT'
+          path: /{bandId}
+
+  apiDelete:
+    handler: index.deleteHandler
+    events:
+      - httpApi:
+          method: 'DELETE'
+          path: /{bandId}
+
+resources:
+  Resources:
+    BandsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.tableName}
+    StorageBucket:
+            Type: "AWS::S3::Bucket"
+            Properties:
+                BucketName: ${self:custom.bucket}
+plugins:
+  - serverless-offline
